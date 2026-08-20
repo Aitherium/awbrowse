@@ -38,6 +38,7 @@ Depends on httpx and nothing else.
 """
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional
 
 __all__ = [
@@ -130,12 +131,16 @@ class Session:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        # Sessions hold a real browser context. Leaking one leaks a process, so the
-        # close is best-effort but never skipped.
+        # Sessions hold a real browser context, so a close that fails LEAKS A REAL
+        # PROCESS on the service. Best-effort, because raising here would replace
+        # whatever exception the caller's block was already carrying — but never
+        # silent: swallowed, this reads as "sessions are cleaned up" while they
+        # accumulate until the service runs out of room.
         try:
             self.close()
-        except BrowseError:
-            pass
+        except BrowseError as exc_close:
+            warnings.warn(f"awbrowse: session {self.sid} was not closed: {exc_close}",
+                          RuntimeWarning, stacklevel=2)
 
 
 class BrowseClient:

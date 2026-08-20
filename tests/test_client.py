@@ -7,9 +7,8 @@ the mutation guards that prove each assertion can still fail.
 from __future__ import annotations
 
 import pytest
-from awbrowse.cli import main
-
 from awbrowse import BROWSE_FIELDS, BrowseClient, BrowseError, Page, browse_body
+from awbrowse.cli import main
 
 
 def test_browse_body_is_exactly_the_declared_field_set():
