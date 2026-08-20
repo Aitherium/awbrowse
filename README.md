@@ -63,15 +63,33 @@ credentials go where the server actually reads them:
 
 ```python
 with b.open_session(storage_state=...) as s:
-    s.act("click", selector="#login")
-    page = s.observe()
-    for req in s.network():          # why a page that "renders fine" is failing
-        print(req["status"], req["url"])
+    s.fill("#user", "me")                 # value= , not text=
+    s.click("#login")
+    o = s.observe()                       # url, title, text, ELEMENTS, screenshot
+    for el in o.elements:                 # what an agent decides to click from
+        print(el["tag"], el["text"], el["selector"])
+    for r in s.network(clear=False):      # why a page that "renders fine" is failing
+        print(r["status"], r["content_type"], r["url"])
 ```
 
 `session.network()` is the reason to reach for a session while debugging: a page
 that renders correctly and fails silently is usually failing in a request nobody
-looked at.
+looked at. **Two things make an empty list mean nothing**, and both are measured:
+it is FILTERED (only JSON-ish responses — content-type json, `/api/` in the URL,
+or `.json`; never a 4xx/5xx and never a preflight), and the default DRAINS the
+buffer server-side, so a second consecutive call returns nothing.
+
+`observe()` is a **different shape** from `browse()` — it has a `title` and an
+`elements` list that `/browse` does not send. They are separate types for that
+reason: parsed as a `Page`, `elements` vanishes and an agent picks what to click
+from a list it never saw.
+
+An action the service does not dispatch is refused here, because it would not be
+refused there: the server's dispatch is an `if/elif` chain with no `else`, so a
+typo'd action is a **no-op that answers 200** — "I clicked and nothing happened".
+Same for a misspelt `open_session` field: unlike `/browse`, that model does *not*
+forbid extras, so a mistyped `storage_state` is dropped in silence and hands you
+an anonymous session that looks logged in.
 
 ---
 
@@ -123,6 +141,7 @@ $ awbrowse --self-test
   PASS  browse body is exactly the declared field set
   PASS  text reads `content`; screenshot reads the MEASURED response key
   PASS  a failed render raises rather than arriving as a blank page
+  PASS  network reads the MEASURED key; an undispatched action is refused
   PASS  image format sniffed, not assumed; base_url normalised; no empty Bearer
 SELF-TEST: awbrowse ok
 ```

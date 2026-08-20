@@ -13,12 +13,18 @@ cookies. See `client.py` for why that is a feature and not a gap.
 from __future__ import annotations
 
 from awbrowse.client import (
+    ACT_FIELDS,
+    ACTIONS,
     BROWSE_FIELDS,
+    NETWORK_KEY,
+    SESSION_OPEN_FIELDS,
     SHOT_KEY,
     BrowseClient,
     BrowseError,
+    Observation,
     Page,
     Session,
+    act_body,
     browse_body,
 )
 
@@ -28,9 +34,15 @@ __all__ = [
     "BrowseClient",
     "BrowseError",
     "Page",
+    "Observation",
     "Session",
     "BROWSE_FIELDS",
     "SHOT_KEY",
+    "NETWORK_KEY",
+    "ACTIONS",
+    "ACT_FIELDS",
+    "SESSION_OPEN_FIELDS",
     "browse_body",
+    "act_body",
     "__version__",
 ]

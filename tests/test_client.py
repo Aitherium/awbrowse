@@ -8,11 +8,16 @@ from __future__ import annotations
 
 import pytest
 from awbrowse import (
+    ACTIONS,
     BROWSE_FIELDS,
+    NETWORK_KEY,
+    SESSION_OPEN_FIELDS,
     SHOT_KEY,
     BrowseClient,
     BrowseError,
+    Observation,
     Page,
+    act_body,
     browse_body,
 )
 from awbrowse.cli import main
@@ -106,3 +111,63 @@ def test_self_test_passes_and_is_the_shipped_check():
 
 def test_no_subcommand_is_an_error_not_a_silent_success():
     assert main([]) == 2
+
+
+# ── the session half, all of it measured against a running service ──────────
+
+
+def test_network_reads_the_response_key_not_the_obvious_guess():
+    """/session/{id}/network answers {"count": N, "responses": [...]}.
+
+    "requests" is the obvious guess on a NETWORK endpoint and it returns [] on
+    every call, forever, with a 200 and no error — turning the one tool that
+    shows you what a page really asked for into one that insists there is
+    nothing to see. Proven live with a control: on the SAME captured response,
+    NETWORK_KEY parsed 1 and "requests" parsed 0.
+    """
+    assert NETWORK_KEY == "responses"
+
+
+def test_observe_is_a_different_shape_from_browse():
+    """It has `title` and `elements`; /browse has neither.
+
+    Parsed as a Page, `elements` — the interactive list an agent decides what to
+    click from — is silently discarded, and the agent chooses from a list it
+    never saw. Measured live: observe returned 1 element on example.com.
+    """
+    o = Observation({"url": "u", "title": "T", "text": "x",
+                     "elements": [{"tag": "a", "text": "Learn more"}],
+                     SHOT_KEY: "AAA"})
+    assert (o.title, len(o.elements), o.screenshot) == ("T", 1, "AAA")
+    assert Observation({}).elements == []      # never None: callers iterate it
+
+
+def test_an_unknown_action_is_refused_locally():
+    """The server dispatches actions on an if/elif chain with NO else.
+
+    So a typo is not an error — it is a no-op that returns 200, which reads as
+    "I clicked and nothing happened". Refusing here is the only place it can be
+    caught.
+    """
+    with pytest.raises(ValueError):
+        act_body("clik", selector="#x")
+    for a in ACTIONS:
+        assert act_body(a)["action"] == a
+
+
+def test_an_undeclared_act_field_is_refused_rather_than_ignored():
+    with pytest.raises(ValueError):
+        act_body("fill", selector="#a", vlaue="typo")
+
+
+def test_a_misspelt_session_open_field_is_refused():
+    """SessionOpenRequest does NOT forbid extras.
+
+    A misspelt `storage_state` is therefore dropped in silence, and the caller
+    gets an ANONYMOUS session that looks logged in — the exact defect /browse's
+    extra="forbid" exists to prevent, one route over and unguarded.
+    """
+    c = BrowseClient("https://h")
+    with pytest.raises(ValueError):
+        c.open_session(storage_stat={"cookies": []})
+    assert "storage_state" in SESSION_OPEN_FIELDS

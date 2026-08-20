@@ -18,11 +18,14 @@ import os
 import sys
 
 from awbrowse.client import (
+    ACTIONS,
     BROWSE_FIELDS,
+    NETWORK_KEY,
     SHOT_KEY,
     BrowseClient,
     BrowseError,
     Page,
+    act_body,
     browse_body,
 )
 
@@ -108,7 +111,26 @@ def _self_test() -> int:
     if not Page({"status": "success"}).ok or not Page({}).ok:
         failures.append("a successful (or status-less) render was reported as failed")
 
-    # 7. The image extension is SNIFFED, never assumed from the request. The
+    # 7. The session surface, all of it measured against a running service.
+    #    NETWORK_KEY: the endpoint answers {"count", "responses"}; "requests" is
+    #    the obvious guess and returns [] forever with a 200. Proven live with a
+    #    control on the SAME captured response: "responses" -> 1, "requests" -> 0.
+    if NETWORK_KEY != "responses":
+        failures.append(f"NETWORK_KEY drifted from the measured key: {NETWORK_KEY}")
+    #    An action the server does not dispatch falls through its if/elif chain
+    #    with no else: not an error, a no-op that answers 200.
+    try:
+        act_body("clik")
+    except ValueError:
+        pass_ = True
+    else:
+        pass_ = False
+    if not pass_:
+        failures.append("an unknown action was accepted")
+    if any(act_body(a)["action"] != a for a in ACTIONS):
+        failures.append("a valid action did not survive act_body")
+
+    # 8. The image extension is SNIFFED, never assumed from the request. The
     #    service returns JPEG for `screenshot: true` (measured), so a hardcoded
     #    .png writes JPEG bytes under a name that lies about them.
     if image_ext(bytes.fromhex("ffd8ffe0") + b"rest") != "jpg":
@@ -120,17 +142,17 @@ def _self_test() -> int:
     if image_ext(b"nonsense") != "bin":
         failures.append("unknown bytes should not be guessed at")
 
-    # 8. base_url is normalised so "host/" and "host" cannot produce "//browse".
+    # 9. base_url is normalised so "host/" and "host" cannot produce "//browse".
     if BrowseClient("https://h/").base_url != "https://h":
         failures.append("trailing slash not trimmed from base_url")
 
-    # 9. No token means no Authorization header — never an empty one. An empty
+    # 10. No token means no Authorization header — never an empty one. An empty
     #    Bearer is rejected differently from an absent one, and the difference
     #    sends you debugging the wrong side.
     if BrowseClient("https://h").token is not None:
         failures.append("token should default to None")
 
-    # 10. A failure RAISES. If it returned an empty Page instead, a dead service
+    # 11. A failure RAISES. If it returned an empty Page instead, a dead service
     #    and a blank page would be the same value to every caller.
     if not issubclass(BrowseError, Exception):
         failures.append("BrowseError is not raisable")
@@ -143,6 +165,7 @@ def _self_test() -> int:
     print("  PASS  browse body is exactly the declared field set")
     print("  PASS  text reads `content`; screenshot reads the MEASURED response key")
     print("  PASS  a failed render raises rather than arriving as a blank page")
+    print("  PASS  network reads the MEASURED key; an undispatched action is refused")
     print("  PASS  image format sniffed, not assumed; base_url normalised; no empty Bearer")
     print("SELF-TEST: awbrowse ok")
     return 0
