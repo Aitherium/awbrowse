@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from awbrowse.client import (
     BROWSE_FIELDS,
+    SHOT_KEY,
     BrowseClient,
     BrowseError,
     Page,
@@ -29,6 +30,7 @@ __all__ = [
     "Page",
     "Session",
     "BROWSE_FIELDS",
+    "SHOT_KEY",
     "browse_body",
     "__version__",
 ]

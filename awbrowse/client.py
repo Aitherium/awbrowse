@@ -43,7 +43,7 @@ from typing import Any, Optional
 
 __all__ = [
     "BrowseClient", "BrowseError", "Page", "Session",
-    "BROWSE_FIELDS", "browse_body",
+    "BROWSE_FIELDS", "SHOT_KEY", "browse_body",
 ]
 
 DEFAULT_TIMEOUT = 60.0
@@ -75,23 +75,50 @@ class BrowseError(RuntimeError):
     """
 
 
-class Page:
-    """One rendered page."""
+#: The screenshot key the service actually sends. MEASURED against a running
+#: AitherBrowser, not inferred from the REQUEST field, which is `screenshot`.
+#: They differ, and reading the request name yields None on every successful
+#: capture — a client that "returns no screenshot" forever while the service
+#: sends one every time. Nothing offline could have caught this: the request is
+#: accepted, the response is a 200, and the missing key is simply absent.
+SHOT_KEY = "screenshot_base64"
 
-    __slots__ = ("url", "title", "text", "html", "screenshot", "raw")
+
+class Page:
+    """One rendered page.
+
+    The attributes are exactly what the service was measured to return —
+    `status`, `url`, `engine`, `content`, plus `screenshot_base64` when a capture
+    was asked for. Deliberately no `title` or `html`: this route sends neither,
+    and an attribute that is empty on every response is worse than an absent one,
+    because callers branch on it. Anything else the service adds is on `.raw`.
+    """
+
+    __slots__ = ("url", "text", "status", "engine", "screenshot", "raw")
 
     def __init__(self, raw: dict) -> None:
         self.raw = raw
         self.url: str = raw.get("url", "")
-        self.title: str = raw.get("title", "")
-        self.text: str = raw.get("text") or raw.get("content") or ""
-        self.html: str = raw.get("html", "")
+        # `content` is what this service sends; `text` is accepted because the
+        # session/observe route spells it that way.
+        self.text: str = raw.get("content") or raw.get("text") or ""
+        self.status: str = raw.get("status", "")
+        self.engine: str = raw.get("engine", "")
         # base64 when the caller asked for one; None otherwise. Never "" — an empty
         # string reads as "a screenshot that came back blank".
-        self.screenshot: Optional[str] = raw.get("screenshot") or None
+        self.screenshot: Optional[str] = raw.get(SHOT_KEY) or raw.get("screenshot") or None
+
+    @property
+    def ok(self) -> bool:
+        """True unless the service reported a failed render.
+
+        A service that answers 200 with `status: "error"` and no content would
+        otherwise arrive as an ordinary blank page.
+        """
+        return self.status in ("", "success", "ok")
 
     def __repr__(self) -> str:
-        return f"<Page {self.url!r} {len(self.text)} chars>"
+        return f"<Page {self.url!r} {len(self.text)} chars via {self.engine or '?'}>"
 
 
 class Session:
@@ -200,7 +227,14 @@ class BrowseClient:
         whole reason the model is strict. For cookies or a stored session, use
         `open_session`.
         """
-        return Page(self._post("/browse", browse_body(url, wait_ms, text, screenshot)))
+        page = Page(self._post("/browse", browse_body(url, wait_ms, text, screenshot)))
+        if not page.ok:
+            # A render the service itself calls failed. Returned, it is a Page
+            # with empty text — indistinguishable from a page that really is
+            # blank, which is the silence this client exists to refuse.
+            raise BrowseError(f"/browse: the service reported status={page.status!r} "
+                              f"for {url}")
+        return page
 
     def scrape(self, url: str, **kwargs: Any) -> dict:
         """Structured extraction, when the service supports a schema for this site."""

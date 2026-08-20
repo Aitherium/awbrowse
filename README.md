@@ -11,13 +11,13 @@ from awbrowse import BrowseClient
 
 b = BrowseClient("https://browser.example.com", token="...")
 page = b.browse("https://example.com")
-print(page.title, len(page.text))
+print(page.ok, page.engine, len(page.text))
 ```
 
 ```bash
-awbrowse get https://example.com          # render, print the text
-awbrowse shot https://example.com -o p.png
-awbrowse --self-test                      # prove the contract, offline
+awbrowse get https://example.com     # render, print the text
+awbrowse shot https://example.com    # -> screenshot.jpg (extension sniffed)
+awbrowse --self-test                 # prove the contract, offline
 ```
 
 The service origin comes from `--url` or `AWBROWSE_URL`, the token from `--token`
@@ -75,6 +75,32 @@ looked at.
 
 ---
 
+## What a live probe found that no offline test could
+
+Both of these shipped in the first draft, and both are the failure this package
+exists to refuse — a request that is valid, a response that is **200**, and a
+key that is simply absent:
+
+**The screenshot key is not the screenshot field.** The request says
+`screenshot: true`; the response says **`screenshot_base64`**. Reading the
+request's name back off the response yields `None` on every successful capture,
+so `awbrowse shot` would have reported *"the service returned no screenshot"*
+forever while the service sent one every time.
+
+**The capture is JPEG, not PNG.** Nothing in the request says so. A default
+output of `screenshot.png` writes JPEG bytes under a name that lies about them —
+fine in a viewer that sniffs, broken in anything that trusts the extension. So
+the extension is sniffed from the magic bytes, and an `-o` whose extension
+disagrees is honoured *and* mentioned.
+
+`Page` therefore exposes exactly what the service was measured to send —
+`status`, `url`, `engine`, `content`, and `screenshot_base64` when asked. No
+`title`, no `html`: this route sends neither, and an attribute that is empty on
+every response is worse than an absent one, because callers branch on it.
+Everything else is on `.raw`.
+
+---
+
 ## Two things it refuses to do
 
 **Return an empty page on failure.** A dead service raises `BrowseError`. If it
@@ -95,8 +121,9 @@ no network:
 ```console
 $ awbrowse --self-test
   PASS  browse body is exactly the declared field set
-  PASS  Page text fallback, and absent screenshot is None
-  PASS  base_url normalised; no token means no header
+  PASS  text reads `content`; screenshot reads the MEASURED response key
+  PASS  a failed render raises rather than arriving as a blank page
+  PASS  image format sniffed, not assumed; base_url normalised; no empty Bearer
 SELF-TEST: awbrowse ok
 ```
 
