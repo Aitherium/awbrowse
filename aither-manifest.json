@@ -5,12 +5,11 @@
   "url": "https://aitherium.github.io/awbrowse/",
   "repository": "https://github.com/Aitherium/awbrowse",
   "kind": "tool",
-  "status": "public",
+  "status": "no-pages",
   "adopt": "Drive one page and get back what is on it in a form worth reasoning about.",
   "pairs_with": [
     "awdk",
-    "awfind",
-    "awsh"
+    "awfind"
   ],
   "includes": []
 }
