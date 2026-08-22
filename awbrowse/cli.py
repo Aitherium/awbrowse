@@ -183,6 +183,11 @@ def _client(args: argparse.Namespace) -> BrowseClient:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # GENERATED doctor intercept (gen_aw_doctor.py) -- do not edit
+    _dv = locals().get("argv")
+    if (_dv if _dv is not None else __import__("sys").argv[1:])[:1] == ["doctor"]:
+        from ._doctor import report
+        return report()
     ap = argparse.ArgumentParser(prog="awbrowse", description=__doc__)
     ap.add_argument("--self-test", action="store_true",
                     help="prove this client still holds its contract, offline")
