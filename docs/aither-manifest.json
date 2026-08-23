@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1",
+  "name": "awbrowse",
+  "description": "A portable browser client — navigate, console, network, DOM, screenshot.",
+  "url": "https://aitherium.github.io/awbrowse/",
+  "repository": "https://github.com/Aitherium/awbrowse",
+  "kind": "tool",
+  "status": "public",
+  "adopt": "Drive one page and get back what is on it in a form worth reasoning about.",
+  "pairs_with": [
+    "awdk",
+    "awfind",
+    "awsh"
+  ],
+  "includes": [],
+  "metrics": {
+    "files": {
+      "value": 15,
+      "as_of": "2026-08-22T18:47:19-07:00"
+    },
+    "tests": {
+      "value": 2,
+      "as_of": "2026-08-22T18:47:19-07:00"
+    }
+  }
+}
