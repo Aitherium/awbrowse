@@ -10,10 +10,6 @@ Handing an agent a screenshot makes it read a picture of text; handing it raw DO
 pip install awbrowse
 ```
 
-## In Claude Code
-
-- skill: `/awbrowse`
-
 ## Use it in 30 seconds
 
 Drive one page and get back what is on it in a form worth reasoning about.
